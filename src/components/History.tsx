@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar, CheckCircle2, Clock, RefreshCw, Trash2, TrendingUp, Wallet } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { Calendar, CheckCircle2, Clock, Pencil, RefreshCw, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "../supabaseClient";
 
 interface BetOperation {
@@ -36,6 +37,11 @@ export const History = () => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BetOperation | null>(null);
+  const [editingBet, setEditingBet] = useState<BetOperation | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const inputClass =
+    "w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -138,11 +144,56 @@ export const History = () => {
     [fetchHistory],
   );
 
-  const { totalProfit, totalVolume, avgRoi } = useMemo(() => {
+  const handleSaveEdit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!editingBet) return;
+
+      try {
+        setSavingEdit(true);
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          toast.error("Voce precisa estar logado para editar a operacao.");
+          return;
+        }
+
+        const { error } = await supabase
+          .from("bet_operations")
+          .update({
+            event_name: editingBet.event_name,
+            market: editingBet.market,
+            total_investment: Number(editingBet.total_investment || 0),
+            expected_profit: Number(editingBet.expected_profit || 0),
+          })
+          .eq("id", editingBet.id)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        toast.success("Operacao atualizada com sucesso.");
+        setEditingBet(null);
+        await fetchHistory();
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Falha desconhecida";
+        toast.error(`Erro ao editar operacao: ${message}`);
+      } finally {
+        setSavingEdit(false);
+      }
+    },
+    [editingBet, fetchHistory],
+  );
+
+  const { totalProfit, capitalPreso, avgRoi, pendingCount } = useMemo(() => {
     const profit = bets.reduce((acc, bet) => acc + Number(bet.expected_profit || 0), 0);
+    const pendingBets = bets.filter((bet) => bet.status === "pending");
     const volume = bets.reduce((acc, bet) => acc + Number(bet.total_investment || 0), 0);
+    const capitalEmAberto = pendingBets.reduce((acc, bet) => acc + Number(bet.total_investment || 0), 0);
     const roi = volume > 0 ? (profit / volume) * 100 : 0;
-    return { totalProfit: profit, totalVolume: volume, avgRoi: roi };
+    return { totalProfit: profit, capitalPreso: capitalEmAberto, avgRoi: roi, pendingCount: pendingBets.length };
   }, [bets]);
 
   return (
@@ -171,9 +222,12 @@ export const History = () => {
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="mb-2 flex items-center gap-3 text-muted-foreground">
             <Calendar size={18} />
-            <span className="text-sm font-medium">Volume Transacionado</span>
+            <span className="text-sm font-medium">Capital Preso (Em Aberto)</span>
           </div>
-          <div className="text-2xl font-bold text-foreground">{formatBRL(totalVolume)}</div>
+          <div className="text-2xl font-bold text-amber-400">{formatBRL(capitalPreso)}</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            {pendingCount} {pendingCount === 1 ? "operacao pendente" : "operacoes pendentes"}
+          </div>
         </div>
       </div>
 
@@ -269,6 +323,16 @@ export const History = () => {
                           )}
 
                           <button
+                            onClick={() => setEditingBet({ ...bet })}
+                            disabled={isDeletingRow || isUpdatingRow}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Editar operacao"
+                            aria-label="Editar operacao"
+                          >
+                            <Pencil size={16} />
+                          </button>
+
+                          <button
                             onClick={() => setDeleteTarget(bet)}
                             disabled={isDeletingRow || isUpdatingRow}
                             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-loss/10 hover:text-loss disabled:cursor-not-allowed disabled:opacity-60"
@@ -318,6 +382,100 @@ export const History = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={Boolean(editingBet)}
+        onOpenChange={(open) => {
+          if (savingEdit) return;
+          if (!open) setEditingBet(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar operacao</DialogTitle>
+            <DialogDescription>Atualize os dados da operacao e salve as alteracoes.</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Evento</label>
+              <input
+                type="text"
+                value={editingBet?.event_name ?? ""}
+                onChange={(e) =>
+                  setEditingBet((prev) => (prev ? { ...prev, event_name: e.target.value } : prev))
+                }
+                className={inputClass}
+                required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Mercado</label>
+              <input
+                type="text"
+                value={editingBet?.market ?? ""}
+                onChange={(e) => setEditingBet((prev) => (prev ? { ...prev, market: e.target.value } : prev))}
+                className={inputClass}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Investimento Total</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editingBet?.total_investment ?? 0}
+                  onChange={(e) =>
+                    setEditingBet((prev) =>
+                      prev ? { ...prev, total_investment: Number(e.target.value || 0) } : prev,
+                    )
+                  }
+                  className={inputClass}
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Lucro Esperado</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editingBet?.expected_profit ?? 0}
+                  onChange={(e) =>
+                    setEditingBet((prev) =>
+                      prev ? { ...prev, expected_profit: Number(e.target.value || 0) } : prev,
+                    )
+                  }
+                  className={inputClass}
+                  required
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setEditingBet(null)}
+                disabled={savingEdit}
+                className="w-full rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={savingEdit}
+                className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                {savingEdit ? "Salvando..." : "Salvar"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
