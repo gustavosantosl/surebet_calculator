@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Calendar, CheckCircle2, Clock, RefreshCw, TrendingUp, Wallet, XCircle } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, RefreshCw, Trash2, TrendingUp, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "../supabaseClient";
 
 interface BetOperation {
@@ -24,6 +34,8 @@ export const History = () => {
   const [bets, setBets] = useState<BetOperation[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BetOperation | null>(null);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -60,7 +72,7 @@ export const History = () => {
     fetchHistory();
   }, [fetchHistory]);
 
-  const updateBetStatus = useCallback(async (betId: string, status: "won" | "lost") => {
+  const updateBetStatus = useCallback(async (betId: string) => {
     try {
       setUpdatingId(betId);
 
@@ -75,14 +87,14 @@ export const History = () => {
 
       const { error } = await supabase
         .from("bet_operations")
-        .update({ status })
+        .update({ status: "completed" })
         .eq("id", betId)
         .eq("user_id", user.id);
 
       if (error) throw error;
 
-      setBets((prev) => prev.map((bet) => (bet.id === betId ? { ...bet, status } : bet)));
-      toast.success(status === "won" ? "Aposta marcada como Green." : "Aposta marcada como Red.");
+      setBets((prev) => prev.map((bet) => (bet.id === betId ? { ...bet, status: "completed" } : bet)));
+      toast.success("Operacao marcada como concluida.");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Falha desconhecida";
       toast.error(`Erro ao atualizar status: ${message}`);
@@ -90,6 +102,41 @@ export const History = () => {
       setUpdatingId(null);
     }
   }, []);
+
+  const handleDelete = useCallback(
+    async (betId: string) => {
+      try {
+        setDeletingId(betId);
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          toast.error("Voce precisa estar logado para apagar a operacao.");
+          return;
+        }
+
+        const { error } = await supabase
+          .from("bet_operations")
+          .delete()
+          .eq("id", betId)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        toast.success("Operacao apagada com sucesso.");
+        setDeleteTarget(null);
+        await fetchHistory();
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Falha desconhecida";
+        toast.error(`Erro ao apagar operacao: ${message}`);
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [fetchHistory],
+  );
 
   const { totalProfit, totalVolume, avgRoi } = useMemo(() => {
     const profit = bets.reduce((acc, bet) => acc + Number(bet.expected_profit || 0), 0);
@@ -170,8 +217,8 @@ export const History = () => {
               ) : (
                 bets.map((bet) => {
                   const isPending = bet.status === "pending";
-                  const isWon = bet.status === "won" || bet.status === "green";
                   const isUpdatingRow = updatingId === bet.id;
+                  const isDeletingRow = deletingId === bet.id;
 
                   return (
                     <tr key={bet.id} className="transition-colors hover:bg-secondary/50">
@@ -198,38 +245,39 @@ export const History = () => {
                             <span className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-500">
                               <Clock size={12} /> Pendente
                             </span>
-                          ) : isWon ? (
-                            <span className="flex items-center gap-1 rounded-full border border-profit/20 bg-profit/10 px-2 py-1 text-[10px] text-profit">
-                              <CheckCircle2 size={12} /> Green
-                            </span>
                           ) : (
-                            <span className="flex items-center gap-1 rounded-full border border-loss/20 bg-loss/10 px-2 py-1 text-[10px] text-loss">
-                              <XCircle size={12} /> Red
+                            <span className="flex items-center gap-1 rounded-full border border-profit/20 bg-profit/10 px-2 py-1 text-[10px] text-profit">
+                              <CheckCircle2 size={12} /> Concluida
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        {isPending ? (
-                          <div className="flex justify-center gap-2">
-                            <button
-                              onClick={() => updateBetStatus(bet.id, "won")}
-                              disabled={isUpdatingRow}
-                              className="rounded-md border border-profit/30 bg-profit/10 px-2.5 py-1 text-[11px] font-semibold text-profit transition-colors hover:bg-profit/20 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              Green
-                            </button>
-                            <button
-                              onClick={() => updateBetStatus(bet.id, "lost")}
-                              disabled={isUpdatingRow}
-                              className="rounded-md border border-loss/30 bg-loss/10 px-2.5 py-1 text-[11px] font-semibold text-loss transition-colors hover:bg-loss/20 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              Red
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="text-center text-[11px] text-muted-foreground">Concluida</div>
-                        )}
+                        <div className="flex items-center justify-center gap-3">
+                          {isPending ? (
+                            <div className="flex justify-center gap-2">
+                              <button
+                                onClick={() => updateBetStatus(bet.id)}
+                                disabled={isUpdatingRow || isDeletingRow}
+                                className="rounded-md border border-profit/30 bg-profit/10 px-2.5 py-1 text-[11px] font-semibold text-profit transition-colors hover:bg-profit/20 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Concluir
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-center text-[11px] text-muted-foreground">Concluida</div>
+                          )}
+
+                          <button
+                            onClick={() => setDeleteTarget(bet)}
+                            disabled={isDeletingRow || isUpdatingRow}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-loss/10 hover:text-loss disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Apagar operacao"
+                            aria-label="Apagar operacao"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -239,6 +287,37 @@ export const History = () => {
           </table>
         </div>
       </div>
+
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (deletingId) return;
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar operacao?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acao nao pode ser desfeita.
+              {deleteTarget?.event_name ? ` Operacao: ${deleteTarget.event_name}.` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={Boolean(deletingId)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={Boolean(deletingId) || !deleteTarget}
+              onClick={async () => {
+                if (!deleteTarget) return;
+                await handleDelete(deleteTarget.id);
+              }}
+              className="bg-loss text-loss-foreground hover:bg-loss/90"
+            >
+              {deletingId ? "Apagando..." : "Apagar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
