@@ -19,6 +19,8 @@ interface BetOperation {
   event_name: string;
   event_date: string;
   market: string;
+  bookie_1: string | null;
+  bookie_2: string | null;
   total_investment: number;
   expected_profit: number;
   status: string;
@@ -81,7 +83,7 @@ export const History = () => {
       const { data, error } = await supabase
         .from("bet_operations")
         .select(
-          "id,event_name,event_date,market,total_investment,expected_profit,status,created_at",
+          "id,event_name,event_date,market,bookie_1,bookie_2,total_investment,expected_profit,status,created_at",
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -303,6 +305,9 @@ export const History = () => {
                       <td className="px-6 py-4">
                         <div className="font-medium text-foreground">{bet.event_name || "Sem nome"}</div>
                         <div className="text-xs text-muted-foreground">{bet.market || "Nao informado"}</div>
+                        <div className="text-xs text-muted-foreground/80">
+                          {bet.bookie_1 || "Casa 1"} x {bet.bookie_2 || "Casa 2"}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
                         {formatEventDateBR(bet.event_date)}
