@@ -31,6 +31,21 @@ const formatBRL = (value: number) =>
 const formatPercent = (value: number) =>
   new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
+const toDateInput = (value: string) => {
+  if (!value) return "";
+
+  const directMatch = value.match(/^\d{4}-\d{2}-\d{2}/);
+  if (directMatch) return directMatch[0];
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export const History = () => {
   const [bets, setBets] = useState<BetOperation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,6 +180,7 @@ export const History = () => {
           .from("bet_operations")
           .update({
             event_name: editingBet.event_name,
+            event_date: editingBet.event_date,
             market: editingBet.market,
             total_investment: Number(editingBet.total_investment || 0),
             expected_profit: Number(editingBet.expected_profit || 0),
@@ -416,6 +432,19 @@ export const History = () => {
                 type="text"
                 value={editingBet?.market ?? ""}
                 onChange={(e) => setEditingBet((prev) => (prev ? { ...prev, market: e.target.value } : prev))}
+                className={inputClass}
+                required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Data do Evento</label>
+              <input
+                type="date"
+                value={toDateInput(editingBet?.event_date ?? "")}
+                onChange={(e) =>
+                  setEditingBet((prev) => (prev ? { ...prev, event_date: e.target.value } : prev))
+                }
                 className={inputClass}
                 required
               />
