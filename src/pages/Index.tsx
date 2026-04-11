@@ -25,7 +25,7 @@ const Index = () => {
   }, []);
 
   if (!session) {
-    return <Login onLoginSuccess={() => console.log("Login efetuado")} />;
+    return <Login onLoginSuccess={() => undefined} />;
   }
 
   return (

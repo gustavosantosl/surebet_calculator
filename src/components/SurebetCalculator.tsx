@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import SaveOperationModal from "./SaveOperationModal";
 import { supabase } from '../supabaseClient';
+import { saveOperationSchema } from "@/lib/validation";
 
 type PivotMode = "total" | "stake1" | "stake2";
 
@@ -106,18 +107,32 @@ export default function SurebetCalculator() {
   ];
 
 const handleSave = async (details: { gameName: string; gameDate: string; gameTime: string; market: string }) => {
-    // Monta o pacote de dados da operacao
-    const payload = {
-      ...details,
-      pivotMode,
+    const parsed = saveOperationSchema.safeParse({
+      gameName: details.gameName,
+      gameDate: details.gameDate,
+      gameTime: details.gameTime,
+      market: details.market,
+      bookie1,
+      bookie2,
       totalInvestment,
-      selections: [
-        { bookie: bookie1, odd: odd1, stake: stake1, return: stake1 * odd1 },
-        { bookie: bookie2, odd: odd2, stake: stake2, return: stake2 * odd2 },
-      ],
+      odd1,
+      odd2,
+      stake1,
+      stake2,
+      expectedProfit: netProfit,
+    });
+
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0]?.message ?? "Dados invalidos. Revise os campos.";
+      toast.error(firstError);
+      return;
+    }
+
+    const payload = {
+      ...parsed.data,
+      pivotMode,
       impliedProbability: impliedProb,
       isProfitable,
-      netProfit,
       roi,
     };
 
@@ -137,35 +152,32 @@ const handleSave = async (details: { gameName: string; gameDate: string; gameTim
         .insert([
           {
             user_id: userData.user.id,
-            event_name: payload.gameName || "Jogo não informado",
-            event_date: payload.gameDate || new Date().toISOString().split("T")[0],
-            event_time: payload.gameTime || "00:00",
-            market: payload.market || "Não informado",
+            event_name: payload.gameName,
+            event_date: payload.gameDate,
+            event_time: payload.gameTime,
+            market: payload.market,
             pivot_mode: payload.pivotMode,
             total_investment: payload.totalInvestment,
-            bookie_1: payload.selections[0].bookie,
-            odd_1: payload.selections[0].odd,
-            stake_1: payload.selections[0].stake,
-            bookie_2: payload.selections[1].bookie,
-            odd_2: payload.selections[1].odd,
-            stake_2: payload.selections[1].stake,
-            expected_profit: payload.netProfit,
+            bookie_1: payload.bookie1,
+            odd_1: payload.odd1,
+            stake_1: payload.stake1,
+            bookie_2: payload.bookie2,
+            odd_2: payload.odd2,
+            stake_2: payload.stake2,
+            expected_profit: payload.expectedProfit,
             status: "pending",
           },
         ]);
 
       if (error) {
-        console.error("Erro detalhado do Supabase:", error);
-        toast.error("Erro ao salvar no banco. Verifique o console.");
+        toast.error("Erro ao salvar no banco. Tente novamente.");
         return;
       }
 
-      console.log("Salvo no banco:", JSON.stringify(payload, null, 2));
       toast.success("Golaço! Operação salva com sucesso nas nuvens!");
       setShowModal(false); // Fecha o modal como no original
 
     } catch (err) {
-      console.error("Erro inesperado na requisição:", err);
       toast.error("Erro crítico ao tentar salvar a operação.");
     }
   };

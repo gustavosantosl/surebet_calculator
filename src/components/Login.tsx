@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Eye, EyeOff, LogIn, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "../supabaseClient";
@@ -8,6 +8,9 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 
 export const Login = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
+  const MAX_LOGIN_ATTEMPTS = 5;
+  const LOGIN_COOLDOWN_MS = 30_000;
+
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,15 +18,61 @@ export const Login = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
+  const [lockUntil, setLockUntil] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!lockUntil) return;
+
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [lockUntil]);
+
+  useEffect(() => {
+    if (lockUntil && Date.now() >= lockUntil) {
+      setLockUntil(null);
+      setFailedLoginAttempts(0);
+    }
+  }, [lockUntil, now]);
+
+  const remainingSeconds = lockUntil ? Math.max(0, Math.ceil((lockUntil - now) / 1000)) : 0;
+  const isLoginLocked = remainingSeconds > 0;
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (isLoginLocked) {
+      toast.error(`Muitas tentativas. Tente novamente em ${remainingSeconds}s.`);
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || password.length < 6) {
+      toast.error("Informe email valido e senha com pelo menos 6 caracteres.");
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
 
     if (error) {
       toast.error(error.message);
+      setFailedLoginAttempts((prev) => {
+        const next = prev + 1;
+        if (next >= MAX_LOGIN_ATTEMPTS) {
+          setLockUntil(Date.now() + LOGIN_COOLDOWN_MS);
+          toast.error("Muitas tentativas seguidas. Aguarde 30 segundos para tentar novamente.");
+          return 0;
+        }
+        return next;
+      });
     } else {
+      setFailedLoginAttempts(0);
+      setLockUntil(null);
       toast.success("Bem-vindo de volta!");
       onLoginSuccess();
     }
@@ -43,8 +92,14 @@ export const Login = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
       return;
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      toast.error("Informe um email valido.");
+      return;
+    }
+
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({ email: normalizedEmail, password });
 
     if (error) {
       toast.error(error.message);
@@ -117,9 +172,9 @@ export const Login = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
                   </div>
                 </div>
 
-                <Button type="submit" disabled={loading} className="w-full gap-2">
+                <Button type="submit" disabled={loading || isLoginLocked} className="w-full gap-2">
                   <LogIn className="h-4 w-4" />
-                  {loading ? "Carregando..." : "Entrar"}
+                  {loading ? "Carregando..." : isLoginLocked ? `Tente em ${remainingSeconds}s` : "Entrar"}
                 </Button>
               </form>
 

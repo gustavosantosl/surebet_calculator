@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { editOperationSchema } from "@/lib/validation";
 import { supabase } from "../supabaseClient";
 
 interface BetOperation {
@@ -57,6 +58,8 @@ const formatEventDateBR = (value: string) => {
 };
 
 export const History = () => {
+  type EditField = "event_name" | "market" | "event_date" | "total_investment" | "expected_profit";
+
   const [bets, setBets] = useState<BetOperation[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -64,6 +67,13 @@ export const History = () => {
   const [deleteTarget, setDeleteTarget] = useState<BetOperation | null>(null);
   const [editingBet, setEditingBet] = useState<BetOperation | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editTouched, setEditTouched] = useState<Record<EditField, boolean>>({
+    event_name: false,
+    market: false,
+    event_date: false,
+    total_investment: false,
+    expected_profit: false,
+  });
 
   const inputClass =
     "w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
@@ -174,6 +184,20 @@ export const History = () => {
       event.preventDefault();
       if (!editingBet) return;
 
+      const parsed = editOperationSchema.safeParse({
+        event_name: editingBet.event_name,
+        event_date: editingBet.event_date,
+        market: editingBet.market,
+        total_investment: Number(editingBet.total_investment || 0),
+        expected_profit: Number(editingBet.expected_profit || 0),
+      });
+
+      if (!parsed.success) {
+        const firstError = parsed.error.issues[0]?.message ?? "Dados invalidos. Revise os campos.";
+        toast.error(firstError);
+        return;
+      }
+
       try {
         setSavingEdit(true);
 
@@ -189,11 +213,11 @@ export const History = () => {
         const { error } = await supabase
           .from("bet_operations")
           .update({
-            event_name: editingBet.event_name,
-            event_date: editingBet.event_date,
-            market: editingBet.market,
-            total_investment: Number(editingBet.total_investment || 0),
-            expected_profit: Number(editingBet.expected_profit || 0),
+            event_name: parsed.data.event_name,
+            event_date: parsed.data.event_date,
+            market: parsed.data.market,
+            total_investment: parsed.data.total_investment,
+            expected_profit: parsed.data.expected_profit,
           })
           .eq("id", editingBet.id)
           .eq("user_id", user.id);
@@ -221,6 +245,32 @@ export const History = () => {
     const roi = volume > 0 ? (profit / volume) * 100 : 0;
     return { totalProfit: profit, capitalPreso: capitalEmAberto, avgRoi: roi, pendingCount: pendingBets.length };
   }, [bets]);
+
+  const editValidation = useMemo(() => {
+    if (!editingBet) return null;
+
+    return editOperationSchema.safeParse({
+      event_name: editingBet.event_name,
+      event_date: editingBet.event_date,
+      market: editingBet.market,
+      total_investment: Number(editingBet.total_investment || 0),
+      expected_profit: Number(editingBet.expected_profit || 0),
+    });
+  }, [editingBet]);
+
+  const editFieldErrors = useMemo(() => {
+    if (!editValidation || editValidation.success) {
+      return {} as Partial<Record<EditField, string[]>>;
+    }
+
+    return editValidation.error.flatten().fieldErrors as Partial<Record<EditField, string[]>>;
+  }, [editValidation]);
+
+  const getEditError = (field: EditField) => (editTouched[field] ? editFieldErrors[field]?.[0] : undefined);
+
+  const markEditTouched = (field: EditField) => {
+    setEditTouched((prev) => ({ ...prev, [field]: true }));
+  };
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-8 space-y-6">
@@ -352,7 +402,16 @@ export const History = () => {
                           )}
 
                           <button
-                            onClick={() => setEditingBet({ ...bet })}
+                            onClick={() => {
+                              setEditingBet({ ...bet });
+                              setEditTouched({
+                                event_name: false,
+                                market: false,
+                                event_date: false,
+                                total_investment: false,
+                                expected_profit: false,
+                              });
+                            }}
                             disabled={isDeletingRow || isUpdatingRow}
                             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
                             title="Editar operacao"
@@ -416,7 +475,16 @@ export const History = () => {
         open={Boolean(editingBet)}
         onOpenChange={(open) => {
           if (savingEdit) return;
-          if (!open) setEditingBet(null);
+          if (!open) {
+            setEditingBet(null);
+            setEditTouched({
+              event_name: false,
+              market: false,
+              event_date: false,
+              total_investment: false,
+              expected_profit: false,
+            });
+          }
         }}
       >
         <DialogContent className="sm:max-w-md">
@@ -434,9 +502,13 @@ export const History = () => {
                 onChange={(e) =>
                   setEditingBet((prev) => (prev ? { ...prev, event_name: e.target.value } : prev))
                 }
+                onBlur={() => markEditTouched("event_name")}
                 className={inputClass}
                 required
               />
+              {getEditError("event_name") ? (
+                <p className="text-[11px] text-loss">{getEditError("event_name")}</p>
+              ) : null}
             </div>
 
             <div className="space-y-1">
@@ -445,9 +517,13 @@ export const History = () => {
                 type="text"
                 value={editingBet?.market ?? ""}
                 onChange={(e) => setEditingBet((prev) => (prev ? { ...prev, market: e.target.value } : prev))}
+                onBlur={() => markEditTouched("market")}
                 className={inputClass}
                 required
               />
+              {getEditError("market") ? (
+                <p className="text-[11px] text-loss">{getEditError("market")}</p>
+              ) : null}
             </div>
 
             <div className="space-y-1">
@@ -458,9 +534,13 @@ export const History = () => {
                 onChange={(e) =>
                   setEditingBet((prev) => (prev ? { ...prev, event_date: e.target.value } : prev))
                 }
+                onBlur={() => markEditTouched("event_date")}
                 className={inputClass}
                 required
               />
+              {getEditError("event_date") ? (
+                <p className="text-[11px] text-loss">{getEditError("event_date")}</p>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -476,9 +556,13 @@ export const History = () => {
                       prev ? { ...prev, total_investment: Number(e.target.value || 0) } : prev,
                     )
                   }
+                  onBlur={() => markEditTouched("total_investment")}
                   className={inputClass}
                   required
                 />
+                {getEditError("total_investment") ? (
+                  <p className="text-[11px] text-loss">{getEditError("total_investment")}</p>
+                ) : null}
               </div>
 
               <div className="space-y-1">
@@ -492,16 +576,29 @@ export const History = () => {
                       prev ? { ...prev, expected_profit: Number(e.target.value || 0) } : prev,
                     )
                   }
+                  onBlur={() => markEditTouched("expected_profit")}
                   className={inputClass}
                   required
                 />
+                {getEditError("expected_profit") ? (
+                  <p className="text-[11px] text-loss">{getEditError("expected_profit")}</p>
+                ) : null}
               </div>
             </div>
 
             <DialogFooter>
               <button
                 type="button"
-                onClick={() => setEditingBet(null)}
+                onClick={() => {
+                  setEditingBet(null);
+                  setEditTouched({
+                    event_name: false,
+                    market: false,
+                    event_date: false,
+                    total_investment: false,
+                    expected_profit: false,
+                  });
+                }}
                 disabled={savingEdit}
                 className="w-full rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
@@ -509,7 +606,7 @@ export const History = () => {
               </button>
               <button
                 type="submit"
-                disabled={savingEdit}
+                disabled={savingEdit || !editValidation?.success}
                 className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {savingEdit ? "Salvando..." : "Salvar"}
