@@ -1,32 +1,36 @@
-import { useState } from 'react';
-import { supabase } from '../supabaseClient'; 
-import { toast } from 'sonner'; 
+import { useState, type FormEvent } from "react";
+import { Eye, EyeOff, LogIn, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "../supabaseClient";
+import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 
 export const Login = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Função para Entrar
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    
+
     if (error) {
       toast.error(error.message);
     } else {
       toast.success("Bem-vindo de volta!");
-      onLoginSuccess(); // Avisa o app que logou com sucesso
+      onLoginSuccess();
     }
     setLoading(false);
   };
 
-  // Função para Criar Conta
   const handleSignUp = async () => {
     setLoading(true);
     const { error } = await supabase.auth.signUp({ email, password });
-    
+
     if (error) {
       toast.error(error.message);
     } else {
@@ -36,46 +40,75 @@ export const Login = ({ onLoginSuccess }: { onLoginSuccess: () => void }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-        <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">Calculadora Surebet</h2>
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input 
-              type="email" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500"
-              required 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Senha</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500"
-              required 
-            />
-          </div>
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
-          >
-            {loading ? 'Carregando...' : 'Entrar'}
-          </button>
-        </form>
-        <button 
-          onClick={handleSignUp}
-          disabled={loading}
-          className="mt-4 w-full flex justify-center py-2 px-4 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 focus:outline-none"
-        >
-          Criar Nova Conta
-        </button>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-16 top-10 h-56 w-56 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute -right-20 bottom-8 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
       </div>
+
+      <Card className="relative w-full max-w-md border-border/80 bg-card/95 shadow-2xl backdrop-blur">
+        <CardHeader className="space-y-3 text-center">
+          <div className="mx-auto inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/40 bg-primary/10">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+          </div>
+          <CardTitle className="font-mono text-3xl tracking-tight">Calculadora Surebet</CardTitle>
+          <CardDescription>Entre para salvar e acompanhar suas operações de dutching.</CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-foreground">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="seuemail@exemplo.com"
+                className="border-border bg-secondary/70 text-foreground placeholder:text-muted-foreground"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-foreground">Senha</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Digite sua senha"
+                  className="border-border bg-secondary/70 pr-11 text-foreground placeholder:text-muted-foreground"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-primary"
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            <Button type="submit" disabled={loading} className="w-full gap-2">
+              <LogIn className="h-4 w-4" />
+              {loading ? "Carregando..." : "Entrar"}
+            </Button>
+          </form>
+
+          <Button
+            onClick={handleSignUp}
+            disabled={loading}
+            variant="outline"
+            className="mt-4 w-full border-primary/50 text-primary hover:bg-primary/10"
+          >
+            Criar Nova Conta
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };
