@@ -46,6 +46,14 @@ const toDateInput = (value: string) => {
   return `${year}-${month}-${day}`;
 };
 
+const formatEventDateBR = (value: string) => {
+  const normalized = toDateInput(value);
+  if (!normalized) return "Data invalida";
+
+  const [year, month, day] = normalized.split("-");
+  return `${day}/${month}/${year}`;
+};
+
 export const History = () => {
   const [bets, setBets] = useState<BetOperation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -297,7 +305,7 @@ export const History = () => {
                         <div className="text-xs text-muted-foreground">{bet.market || "Nao informado"}</div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        {new Date(bet.event_date).toLocaleDateString("pt-BR")}
+                        {formatEventDateBR(bet.event_date)}
                       </td>
                       <td className="px-6 py-4 text-right text-foreground">
                         {formatBRL(Number(bet.total_investment || 0))}
