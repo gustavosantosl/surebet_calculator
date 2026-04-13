@@ -59,6 +59,8 @@ const formatEventDateBR = (value: string) => {
 
 export const History = () => {
   type EditField = "event_name" | "market" | "event_date" | "total_investment" | "expected_profit";
+  type SortField = "event_date" | "created_at" | "event_name" | "total_investment" | "expected_profit";
+  type SortOrder = "asc" | "desc";
 
   const [bets, setBets] = useState<BetOperation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +76,17 @@ export const History = () => {
     total_investment: false,
     expected_profit: false,
   });
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed">("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [minInvestment, setMinInvestment] = useState("");
+  const [maxInvestment, setMaxInvestment] = useState("");
+  const [minProfit, setMinProfit] = useState("");
+  const [maxProfit, setMaxProfit] = useState("");
+  const [sortField, setSortField] = useState<SortField>("created_at");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [resultLimit, setResultLimit] = useState<"10" | "25" | "50" | "100" | "all">("10");
 
   const inputClass =
     "w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
@@ -96,8 +109,7 @@ export const History = () => {
           "id,event_name,event_date,market,bookie_1,bookie_2,total_investment,expected_profit,status,created_at",
         )
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setBets((data as BetOperation[]) || []);
@@ -246,6 +258,90 @@ export const History = () => {
     return { totalProfit: profit, capitalPreso: capitalEmAberto, avgRoi: roi, pendingCount: pendingBets.length };
   }, [bets]);
 
+  const filteredBets = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    const hasSearch = normalizedSearch.length > 0;
+    const fromTs = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : null;
+    const toTs = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
+    const minInv = minInvestment !== "" ? Number(minInvestment) : null;
+    const maxInv = maxInvestment !== "" ? Number(maxInvestment) : null;
+    const minProf = minProfit !== "" ? Number(minProfit) : null;
+    const maxProf = maxProfit !== "" ? Number(maxProfit) : null;
+
+    const getSortValue = (bet: BetOperation, field: SortField) => {
+      if (field === "event_name") return (bet.event_name || "").toLowerCase();
+      if (field === "total_investment") return Number(bet.total_investment || 0);
+      if (field === "expected_profit") return Number(bet.expected_profit || 0);
+      return new Date(bet[field] || "").getTime() || 0;
+    };
+
+    const results = bets.filter((bet) => {
+      if (statusFilter !== "all" && bet.status !== statusFilter) return false;
+
+      if (hasSearch) {
+        const haystack = [bet.event_name, bet.market, bet.bookie_1, bet.bookie_2]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(normalizedSearch)) return false;
+      }
+
+      const eventDateNormalized = toDateInput(bet.event_date);
+      const eventTs = eventDateNormalized ? new Date(`${eventDateNormalized}T12:00:00`).getTime() : null;
+      if (fromTs !== null && (eventTs === null || eventTs < fromTs)) return false;
+      if (toTs !== null && (eventTs === null || eventTs > toTs)) return false;
+
+      const investment = Number(bet.total_investment || 0);
+      if (minInv !== null && investment < minInv) return false;
+      if (maxInv !== null && investment > maxInv) return false;
+
+      const profit = Number(bet.expected_profit || 0);
+      if (minProf !== null && profit < minProf) return false;
+      if (maxProf !== null && profit > maxProf) return false;
+
+      return true;
+    });
+
+    results.sort((a, b) => {
+      const aValue = getSortValue(a, sortField);
+      const bValue = getSortValue(b, sortField);
+
+      if (aValue === bValue) return 0;
+      const comparison = aValue > bValue ? 1 : -1;
+      return sortOrder === "asc" ? comparison : -comparison;
+    });
+
+    if (resultLimit === "all") return results;
+    return results.slice(0, Number(resultLimit));
+  }, [
+    bets,
+    search,
+    statusFilter,
+    dateFrom,
+    dateTo,
+    minInvestment,
+    maxInvestment,
+    minProfit,
+    maxProfit,
+    sortField,
+    sortOrder,
+    resultLimit,
+  ]);
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setDateFrom("");
+    setDateTo("");
+    setMinInvestment("");
+    setMaxInvestment("");
+    setMinProfit("");
+    setMaxProfit("");
+    setSortField("created_at");
+    setSortOrder("desc");
+    setResultLimit("10");
+  };
+
   const editValidation = useMemo(() => {
     if (!editingBet) return null;
 
@@ -309,7 +405,7 @@ export const History = () => {
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border p-4">
-          <h3 className="font-semibold text-foreground">Ultimas 10 Operacoes</h3>
+          <h3 className="font-semibold text-foreground">Historico de Operacoes</h3>
           <button
             onClick={fetchHistory}
             className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:opacity-80"
@@ -317,6 +413,128 @@ export const History = () => {
             <RefreshCw className="h-3.5 w-3.5" />
             Atualizar
           </button>
+        </div>
+
+        <div className="space-y-3 border-b border-border p-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar evento, mercado ou casa"
+              className={inputClass}
+            />
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as "all" | "pending" | "completed")}
+              className={inputClass}
+            >
+              <option value="all">Status: todos</option>
+              <option value="pending">Status: pendente</option>
+              <option value="completed">Status: concluida</option>
+            </select>
+
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className={inputClass}
+            />
+
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={minInvestment}
+              onChange={(e) => setMinInvestment(e.target.value)}
+              placeholder="Investimento minimo"
+              className={inputClass}
+            />
+
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={maxInvestment}
+              onChange={(e) => setMaxInvestment(e.target.value)}
+              placeholder="Investimento maximo"
+              className={inputClass}
+            />
+
+            <input
+              type="number"
+              step="0.01"
+              value={minProfit}
+              onChange={(e) => setMinProfit(e.target.value)}
+              placeholder="Lucro minimo"
+              className={inputClass}
+            />
+
+            <input
+              type="number"
+              step="0.01"
+              value={maxProfit}
+              onChange={(e) => setMaxProfit(e.target.value)}
+              placeholder="Lucro maximo"
+              className={inputClass}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as SortField)}
+              className={inputClass}
+            >
+              <option value="created_at">Ordenar por criacao</option>
+              <option value="event_date">Ordenar por data do evento</option>
+              <option value="event_name">Ordenar por evento</option>
+              <option value="total_investment">Ordenar por investimento</option>
+              <option value="expected_profit">Ordenar por lucro esperado</option>
+            </select>
+
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as SortOrder)}
+              className={inputClass}
+            >
+              <option value="desc">Ordem: decrescente</option>
+              <option value="asc">Ordem: crescente</option>
+            </select>
+
+            <select
+              value={resultLimit}
+              onChange={(e) => setResultLimit(e.target.value as "10" | "25" | "50" | "100" | "all")}
+              className={inputClass}
+            >
+              <option value="10">Exibir: 10</option>
+              <option value="25">Exibir: 25</option>
+              <option value="50">Exibir: 50</option>
+              <option value="100">Exibir: 100</option>
+              <option value="all">Exibir: todos</option>
+            </select>
+
+            <button
+              onClick={clearFilters}
+              className="rounded-md border border-border bg-secondary px-3 py-2 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
+            >
+              Limpar filtros
+            </button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Mostrando {filteredBets.length} de {bets.length} operacoes.
+          </p>
         </div>
 
         <div className="overflow-x-auto">
@@ -338,14 +556,14 @@ export const History = () => {
                     Carregando dados...
                   </td>
                 </tr>
-              ) : bets.length === 0 ? (
+              ) : filteredBets.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-muted-foreground">
-                    Nenhuma aposta registrada.
+                    Nenhuma operacao encontrada para os filtros aplicados.
                   </td>
                 </tr>
               ) : (
-                bets.map((bet) => {
+                filteredBets.map((bet) => {
                   const isPending = bet.status === "pending";
                   const isUpdatingRow = updatingId === bet.id;
                   const isDeletingRow = deletingId === bet.id;

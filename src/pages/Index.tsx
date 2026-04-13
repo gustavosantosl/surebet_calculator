@@ -32,7 +32,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 md:px-6">
-          <h1 className="text-sm font-semibold tracking-wide text-foreground md:text-base">Surebet Calc</h1>
+          <h1 className="text-sm font-semibold tracking-wide text-foreground md:text-base">Surebet Calculator</h1>
           <button
             onClick={() => supabase.auth.signOut()}
             className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/25"
