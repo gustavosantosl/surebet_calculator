@@ -57,6 +57,26 @@ const formatEventDateBR = (value: string) => {
   return `${day}/${month}/${year}`;
 };
 
+const hasTimeInRawValue = (value: string) => /\d{2}:\d{2}/.test(value);
+
+const formatTimeBR = (value: string) => {
+  if (!value) return "--:--";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "--:--";
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(parsed);
+};
+
+const formatEventDateTimeBR = (eventDate: string, createdAt: string) => {
+  const date = formatEventDateBR(eventDate);
+  const timeSource = hasTimeInRawValue(eventDate) ? eventDate : createdAt;
+  const time = formatTimeBR(timeSource);
+  return `${date} • ${time}`;
+};
+
 export const History = () => {
   type EditField = "event_name" | "market" | "event_date" | "total_investment" | "expected_profit";
 
@@ -450,7 +470,7 @@ export const History = () => {
 
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <div>{bet.bookie_1 || "Casa 1"} x {bet.bookie_2 || "Casa 2"}</div>
-                    <div>Data: {formatEventDateBR(bet.event_date)}</div>
+                    <div>{formatEventDateTimeBR(bet.event_date, bet.created_at)}</div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -559,7 +579,7 @@ export const History = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        {formatEventDateBR(bet.event_date)}
+                        {formatEventDateTimeBR(bet.event_date, bet.created_at)}
                       </td>
                       <td className="px-6 py-4 text-right text-foreground">
                         {formatBRL(Number(bet.total_investment || 0))}
