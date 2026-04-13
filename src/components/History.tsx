@@ -19,6 +19,7 @@ interface BetOperation {
   id: string;
   event_name: string;
   event_date: string;
+  event_time: string | null;
   market: string;
   bookie_1: string | null;
   bookie_2: string | null;
@@ -57,11 +58,13 @@ const formatEventDateBR = (value: string) => {
   return `${day}/${month}/${year}`;
 };
 
-const hasTimeInRawValue = (value: string) => /\d{2}:\d{2}/.test(value);
+const formatEventTimeBR = (eventTime: string | null) => {
+  if (!eventTime) return "--:--";
 
-const formatTimeBR = (value: string) => {
-  if (!value) return "--:--";
-  const parsed = new Date(value);
+  const hhmmMatch = eventTime.match(/^(\d{2}:\d{2})/);
+  if (hhmmMatch) return hhmmMatch[1];
+
+  const parsed = new Date(eventTime);
   if (Number.isNaN(parsed.getTime())) return "--:--";
 
   return new Intl.DateTimeFormat("pt-BR", {
@@ -70,10 +73,9 @@ const formatTimeBR = (value: string) => {
   }).format(parsed);
 };
 
-const formatEventDateTimeBR = (eventDate: string, createdAt: string) => {
+const formatEventDateTimeBR = (eventDate: string, eventTime: string | null) => {
   const date = formatEventDateBR(eventDate);
-  const timeSource = hasTimeInRawValue(eventDate) ? eventDate : createdAt;
-  const time = formatTimeBR(timeSource);
+  const time = formatEventTimeBR(eventTime);
   return `${date} • ${time}`;
 };
 
@@ -117,7 +119,7 @@ export const History = () => {
       const { data, error } = await supabase
         .from("bet_operations")
         .select(
-          "id,event_name,event_date,market,bookie_1,bookie_2,total_investment,expected_profit,status,created_at",
+          "id,event_name,event_date,event_time,market,bookie_1,bookie_2,total_investment,expected_profit,status,created_at",
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
@@ -470,7 +472,7 @@ export const History = () => {
 
                   <div className="space-y-1 text-xs text-muted-foreground">
                     <div>{bet.bookie_1 || "Casa 1"} x {bet.bookie_2 || "Casa 2"}</div>
-                    <div>{formatEventDateTimeBR(bet.event_date, bet.created_at)}</div>
+                    <div>{formatEventDateTimeBR(bet.event_date, bet.event_time)}</div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -579,7 +581,7 @@ export const History = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
-                        {formatEventDateTimeBR(bet.event_date, bet.created_at)}
+                        {formatEventDateTimeBR(bet.event_date, bet.event_time)}
                       </td>
                       <td className="px-6 py-4 text-right text-foreground">
                         {formatBRL(Number(bet.total_investment || 0))}
