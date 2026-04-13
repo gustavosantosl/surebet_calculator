@@ -349,13 +349,13 @@ export const History = () => {
         </div>
 
         <div className="space-y-3 border-b border-border p-4">
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="w-full min-w-[140px] flex-1 sm:w-auto sm:flex-none">
-              <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Status</label>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <div className="col-span-2 sm:col-span-1">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as "all" | "pending" | "completed")}
                 className={inputClass}
+                aria-label="Filtrar por status"
               >
                 <option value="all">Todos</option>
                 <option value="pending">Pendente</option>
@@ -363,42 +363,44 @@ export const History = () => {
               </select>
             </div>
 
-            <div className="w-full min-w-[140px] flex-1 sm:w-auto sm:flex-none">
-              <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">De</label>
+            <div className="col-span-1">
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
                 className={inputClass}
+                aria-label="Data inicial"
+                title="Data inicial"
               />
             </div>
 
-            <div className="w-full min-w-[140px] flex-1 sm:w-auto sm:flex-none">
-              <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Ate</label>
+            <div className="col-span-1">
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
                 className={inputClass}
+                aria-label="Data final"
+                title="Data final"
               />
             </div>
 
-            <div className="w-full min-w-[140px] flex-1 sm:w-auto sm:flex-none">
-              <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Exibir</label>
+            <div className="col-span-1">
               <select
                 value={resultLimit}
                 onChange={(e) => setResultLimit(e.target.value as "10" | "25" | "50" | "100" | "all")}
                 className={inputClass}
+                aria-label="Quantidade de operacoes"
               >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
+                <option value="10">10 ops</option>
+                <option value="25">25 ops</option>
+                <option value="50">50 ops</option>
+                <option value="100">100 ops</option>
                 <option value="all">Todos</option>
               </select>
             </div>
 
-            <div className="w-full sm:w-auto">
+            <div className="col-span-1 self-end">
               <button
                 onClick={clearFilters}
                 className="w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
@@ -413,7 +415,110 @@ export const History = () => {
           </p>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="space-y-3 p-3 md:hidden">
+          {loading ? (
+            <div className="rounded-lg border border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground">
+              Carregando dados...
+            </div>
+          ) : filteredBets.length === 0 ? (
+            <div className="rounded-lg border border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground">
+              Nenhuma operacao encontrada para os filtros aplicados.
+            </div>
+          ) : (
+            filteredBets.map((bet) => {
+              const isPending = bet.status === "pending";
+              const isUpdatingRow = updatingId === bet.id;
+              const isDeletingRow = deletingId === bet.id;
+
+              return (
+                <div key={bet.id} className="rounded-lg border border-border bg-secondary/20 p-3">
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-medium text-foreground">{bet.event_name || "Sem nome"}</div>
+                      <div className="text-xs text-muted-foreground">{bet.market || "Nao informado"}</div>
+                    </div>
+                    {isPending ? (
+                      <span className="flex shrink-0 items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-500">
+                        <Clock size={12} /> Pendente
+                      </span>
+                    ) : (
+                      <span className="flex shrink-0 items-center gap-1 rounded-full border border-profit/20 bg-profit/10 px-2 py-1 text-[10px] text-profit">
+                        <CheckCircle2 size={12} /> Concluida
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <div>{bet.bookie_1 || "Casa 1"} x {bet.bookie_2 || "Casa 2"}</div>
+                    <div>Data: {formatEventDateBR(bet.event_date)}</div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-md border border-border bg-background/30 p-2">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Investimento</div>
+                      <div className="font-medium text-foreground">{formatBRL(Number(bet.total_investment || 0))}</div>
+                    </div>
+                    <div className="rounded-md border border-border bg-background/30 p-2">
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Lucro esperado</div>
+                      <div
+                        className={`font-semibold ${
+                          Number(bet.expected_profit || 0) >= 0 ? "text-profit" : "text-loss"
+                        }`}
+                      >
+                        {formatBRL(Number(bet.expected_profit || 0))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    {isPending ? (
+                      <button
+                        onClick={() => updateBetStatus(bet.id)}
+                        disabled={isUpdatingRow || isDeletingRow}
+                        className="rounded-md border border-profit/30 bg-profit/10 px-2.5 py-1 text-[11px] font-semibold text-profit transition-colors hover:bg-profit/20 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Concluir
+                      </button>
+                    ) : (
+                      <div className="mr-auto text-[11px] text-muted-foreground">Concluida</div>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setEditingBet({ ...bet });
+                        setEditTouched({
+                          event_name: false,
+                          market: false,
+                          event_date: false,
+                          total_investment: false,
+                          expected_profit: false,
+                        });
+                      }}
+                      disabled={isDeletingRow || isUpdatingRow}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+                      title="Editar operacao"
+                      aria-label="Editar operacao"
+                    >
+                      <Pencil size={16} />
+                    </button>
+
+                    <button
+                      onClick={() => setDeleteTarget(bet)}
+                      disabled={isDeletingRow || isUpdatingRow}
+                      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-loss/10 hover:text-loss disabled:cursor-not-allowed disabled:opacity-60"
+                      title="Apagar operacao"
+                      aria-label="Apagar operacao"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-left text-sm">
             <thead className="bg-secondary text-muted-foreground uppercase text-[10px] tracking-wider">
               <tr>
