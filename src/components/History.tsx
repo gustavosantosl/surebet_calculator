@@ -74,6 +74,7 @@ export const History = () => {
     total_investment: false,
     expected_profit: false,
   });
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [resultLimit, setResultLimit] = useState<"10" | "25" | "50" | "100" | "all">("10");
@@ -253,6 +254,8 @@ export const History = () => {
     const toTs = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : null;
 
     const results = bets.filter((bet) => {
+      if (statusFilter !== "all" && bet.status !== statusFilter) return false;
+
       const eventDateNormalized = toDateInput(bet.event_date);
       const eventTs = eventDateNormalized ? new Date(`${eventDateNormalized}T12:00:00`).getTime() : null;
       if (fromTs !== null && (eventTs === null || eventTs < fromTs)) return false;
@@ -263,9 +266,10 @@ export const History = () => {
 
     if (resultLimit === "all") return results;
     return results.slice(0, Number(resultLimit));
-  }, [bets, dateFrom, dateTo, resultLimit]);
+  }, [bets, statusFilter, dateFrom, dateTo, resultLimit]);
 
   const clearFilters = () => {
+    setStatusFilter("all");
     setDateFrom("");
     setDateTo("");
     setResultLimit("10");
@@ -345,39 +349,63 @@ export const History = () => {
         </div>
 
         <div className="space-y-3 border-b border-border p-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className={inputClass}
-            />
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="w-full min-w-[140px] flex-1 sm:w-auto sm:flex-none">
+              <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as "all" | "pending" | "completed")}
+                className={inputClass}
+              >
+                <option value="all">Todos</option>
+                <option value="pending">Pendente</option>
+                <option value="completed">Concluida</option>
+              </select>
+            </div>
 
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className={inputClass}
-            />
+            <div className="w-full min-w-[140px] flex-1 sm:w-auto sm:flex-none">
+              <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">De</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className={inputClass}
+              />
+            </div>
 
-            <select
-              value={resultLimit}
-              onChange={(e) => setResultLimit(e.target.value as "10" | "25" | "50" | "100" | "all")}
-              className={inputClass}
-            >
-              <option value="10">Exibir: 10</option>
-              <option value="25">Exibir: 25</option>
-              <option value="50">Exibir: 50</option>
-              <option value="100">Exibir: 100</option>
-              <option value="all">Exibir: todos</option>
-            </select>
+            <div className="w-full min-w-[140px] flex-1 sm:w-auto sm:flex-none">
+              <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Ate</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className={inputClass}
+              />
+            </div>
 
-            <button
-              onClick={clearFilters}
-              className="rounded-md border border-border bg-secondary px-3 py-2 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
-            >
-              Limpar filtros
-            </button>
+            <div className="w-full min-w-[140px] flex-1 sm:w-auto sm:flex-none">
+              <label className="mb-1 block text-[10px] uppercase tracking-wide text-muted-foreground">Exibir</label>
+              <select
+                value={resultLimit}
+                onChange={(e) => setResultLimit(e.target.value as "10" | "25" | "50" | "100" | "all")}
+                className={inputClass}
+              >
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="all">Todos</option>
+              </select>
+            </div>
+
+            <div className="w-full sm:w-auto">
+              <button
+                onClick={clearFilters}
+                className="w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
+              >
+                Limpar
+              </button>
+            </div>
           </div>
 
           <p className="text-xs text-muted-foreground">
