@@ -1,6 +1,11 @@
 # 📈 Surebet Calculator & Dashboard
 
-Um sistema completo para gestão de banca e cálculo de apostas de arbitragem (Surebet/Dutching). Desenvolvido com foco em performance, experiência do usuário (Mobile-First) e segurança de dados em nível de banco de dados.
+Um sistema completo para gestão de capital e análise de oportunidades de arbitragem (Surebet/Dutching) em mercados esportivos descentralizados. Desenvolvido com foco em performance, experiência do usuário (Mobile-First) e segurança de dados em nível de banco de dados.
+
+##Algoritmo de Arbitragem
+Identifica oportunidades de lucro através da ineficiência de precificação entre diferentes plataformas, garantindo que a soma das probabilidades implícitas seja menor que 100%:
+<img width="173" height="105" alt="image" src="https://github.com/user-attachments/assets/a5316f2e-b7db-4d66-99c8-2cf654b844f1" />
+
 
 ## 🚀 Funcionalidades
 
