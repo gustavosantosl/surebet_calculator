@@ -583,7 +583,7 @@ export const History = () => {
                         <div className="font-medium text-foreground">{bet.event_name || "Sem nome"}</div>
                         <div className="text-xs text-muted-foreground">{bet.market || "Nao informado"}</div>
                         <div className="text-xs text-muted-foreground/80">
-                          {bet.bookie_1 || "Casa 1"} x {bet.bookie_2 || "Casa 2"}
+                          {bet.bookmaker || "Casas nao informadas"}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
@@ -762,7 +762,6 @@ export const History = () => {
                 onChange={(e) => setEditingBet((prev) => (prev ? { ...prev, bookmaker: e.target.value } : prev))}
                 onBlur={() => markEditTouched("bookmaker")}
                 className={inputClass}
-                required
               />
               {getEditError("bookmaker") ? <p className="text-[11px] text-loss">{getEditError("bookmaker")}</p> : null}
             </div>

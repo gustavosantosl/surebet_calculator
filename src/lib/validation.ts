@@ -32,7 +32,7 @@ export const editOperationSchema = z.object({
   event_name: trimmedText("Evento", 3, 120),
   event_date: z.string().regex(dateRegex, "Data do evento invalida."),
   market: trimmedText("Mercado", 2, 80),
-  bookmaker: trimmedText("Casas de aposta", 2, 120),
+  bookmaker: z.string().trim().max(120, "Casas de aposta deve ter no maximo 120 caracteres.").optional(),
   total_investment: z.number().positive("Investimento total deve ser maior que zero."),
   expected_profit: z.number().finite("Lucro esperado invalido."),
 });
