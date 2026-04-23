@@ -476,7 +476,7 @@ export const History = () => {
                   </div>
 
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    <div>{bet.bookie_1 || "Casa 1"} x {bet.bookie_2 || "Casa 2"}</div>
+                    <div>{bet.bookmaker || "Casas nao informadas"}</div>
                     <div>{formatEventDateTimeBR(bet.event_date, bet.event_time)}</div>
                   </div>
 
@@ -789,7 +789,7 @@ export const History = () => {
                 <label className="text-xs font-medium text-muted-foreground">Investimento Total</label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0"
                   value={editingBet?.total_investment ?? 0}
                   onChange={(e) =>
@@ -810,7 +810,7 @@ export const History = () => {
                 <label className="text-xs font-medium text-muted-foreground">Lucro Esperado</label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   value={editingBet?.expected_profit ?? 0}
                   onChange={(e) =>
                     setEditingBet((prev) =>
