@@ -21,7 +21,6 @@ interface BetOperation {
   event_date: string;
   event_time: string | null;
   market: string;
-  bookmaker: string | null;
   bookie_1: string | null;
   bookie_2: string | null;
   total_investment: number;
@@ -81,7 +80,14 @@ const formatEventDateTimeBR = (eventDate: string, eventTime: string | null) => {
 };
 
 export const History = () => {
-  type EditField = "event_name" | "market" | "bookmaker" | "event_date" | "total_investment" | "expected_profit";
+  type EditField =
+    | "event_name"
+    | "market"
+    | "bookie_1"
+    | "bookie_2"
+    | "event_date"
+    | "total_investment"
+    | "expected_profit";
 
   const [bets, setBets] = useState<BetOperation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +99,8 @@ export const History = () => {
   const [editTouched, setEditTouched] = useState<Record<EditField, boolean>>({
     event_name: false,
     market: false,
-    bookmaker: false,
+    bookie_1: false,
+    bookie_2: false,
     event_date: false,
     total_investment: false,
     expected_profit: false,
@@ -121,7 +128,7 @@ export const History = () => {
       const { data, error } = await supabase
         .from("bet_operations")
         .select(
-          "id,event_name,event_date,event_time,market,bookmaker,bookie_1,bookie_2,total_investment,expected_profit,status,created_at",
+          "id,event_name,event_date,event_time,market,bookie_1,bookie_2,total_investment,expected_profit,status,created_at",
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
@@ -215,7 +222,8 @@ export const History = () => {
         event_name: editingBet.event_name,
         event_date: editingBet.event_date,
         market: editingBet.market,
-        bookmaker: editingBet.bookmaker ?? "",
+        bookie_1: editingBet.bookie_1 ?? "",
+        bookie_2: editingBet.bookie_2 ?? "",
         total_investment: Number(editingBet.total_investment || 0),
         expected_profit: Number(editingBet.expected_profit || 0),
       });
@@ -244,7 +252,8 @@ export const History = () => {
             event_name: parsed.data.event_name,
             event_date: parsed.data.event_date,
             market: parsed.data.market,
-            bookmaker: parsed.data.bookmaker,
+            bookie_1: parsed.data.bookie_1 || null,
+            bookie_2: parsed.data.bookie_2 || null,
             total_investment: parsed.data.total_investment,
             expected_profit: parsed.data.expected_profit,
           })
@@ -308,7 +317,8 @@ export const History = () => {
       event_name: editingBet.event_name,
       event_date: editingBet.event_date,
       market: editingBet.market,
-      bookmaker: editingBet.bookmaker ?? "",
+      bookie_1: editingBet.bookie_1 ?? "",
+      bookie_2: editingBet.bookie_2 ?? "",
       total_investment: Number(editingBet.total_investment || 0),
       expected_profit: Number(editingBet.expected_profit || 0),
     });
@@ -327,6 +337,9 @@ export const History = () => {
   const markEditTouched = (field: EditField) => {
     setEditTouched((prev) => ({ ...prev, [field]: true }));
   };
+
+  const getBookiesLabel = (bet: BetOperation) =>
+    bet.bookie_1 && bet.bookie_2 ? `${bet.bookie_1} x ${bet.bookie_2}` : "Casas nao informadas";
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 md:p-8 space-y-6">
@@ -476,7 +489,7 @@ export const History = () => {
                   </div>
 
                   <div className="space-y-1 text-xs text-muted-foreground">
-                    <div>{bet.bookmaker || "Casas nao informadas"}</div>
+                    <div>{getBookiesLabel(bet)}</div>
                     <div>{formatEventDateTimeBR(bet.event_date, bet.event_time)}</div>
                   </div>
 
@@ -516,7 +529,8 @@ export const History = () => {
                         setEditTouched({
                           event_name: false,
                           market: false,
-                          bookmaker: false,
+                          bookie_1: false,
+                          bookie_2: false,
                           event_date: false,
                           total_investment: false,
                           expected_profit: false,
@@ -583,7 +597,7 @@ export const History = () => {
                         <div className="font-medium text-foreground">{bet.event_name || "Sem nome"}</div>
                         <div className="text-xs text-muted-foreground">{bet.market || "Nao informado"}</div>
                         <div className="text-xs text-muted-foreground/80">
-                          {bet.bookmaker || "Casas nao informadas"}
+                          {getBookiesLabel(bet)}
                         </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
@@ -634,7 +648,8 @@ export const History = () => {
                               setEditTouched({
                                 event_name: false,
                                 market: false,
-                                bookmaker: false,
+                                bookie_1: false,
+                                bookie_2: false,
                                 event_date: false,
                                 total_investment: false,
                                 expected_profit: false,
@@ -708,6 +723,8 @@ export const History = () => {
             setEditTouched({
               event_name: false,
               market: false,
+              bookie_1: false,
+              bookie_2: false,
               event_date: false,
               total_investment: false,
               expected_profit: false,
@@ -754,16 +771,32 @@ export const History = () => {
               ) : null}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Casas de Aposta</label>
-              <input
-                type="text"
-                value={editingBet?.bookmaker ?? ""}
-                onChange={(e) => setEditingBet((prev) => (prev ? { ...prev, bookmaker: e.target.value } : prev))}
-                onBlur={() => markEditTouched("bookmaker")}
-                className={inputClass}
-              />
-              {getEditError("bookmaker") ? <p className="text-[11px] text-loss">{getEditError("bookmaker")}</p> : null}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Casa 1</label>
+                <input
+                  type="text"
+                  value={editingBet?.bookie_1 ?? ""}
+                  onChange={(e) => setEditingBet((prev) => (prev ? { ...prev, bookie_1: e.target.value } : prev))}
+                  onBlur={() => markEditTouched("bookie_1")}
+                  className={inputClass}
+                  placeholder="Ex: Bet365"
+                />
+                {getEditError("bookie_1") ? <p className="text-[11px] text-loss">{getEditError("bookie_1")}</p> : null}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Casa 2</label>
+                <input
+                  type="text"
+                  value={editingBet?.bookie_2 ?? ""}
+                  onChange={(e) => setEditingBet((prev) => (prev ? { ...prev, bookie_2: e.target.value } : prev))}
+                  onBlur={() => markEditTouched("bookie_2")}
+                  className={inputClass}
+                  placeholder="Ex: Betano"
+                />
+                {getEditError("bookie_2") ? <p className="text-[11px] text-loss">{getEditError("bookie_2")}</p> : null}
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -834,7 +867,8 @@ export const History = () => {
                   setEditTouched({
                     event_name: false,
                     market: false,
-                    bookmaker: false,
+                    bookie_1: false,
+                    bookie_2: false,
                     event_date: false,
                     total_investment: false,
                     expected_profit: false,
