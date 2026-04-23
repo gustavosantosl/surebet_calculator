@@ -21,6 +21,7 @@ interface BetOperation {
   event_date: string;
   event_time: string | null;
   market: string;
+  bookmaker: string | null;
   bookie_1: string | null;
   bookie_2: string | null;
   total_investment: number;
@@ -80,7 +81,7 @@ const formatEventDateTimeBR = (eventDate: string, eventTime: string | null) => {
 };
 
 export const History = () => {
-  type EditField = "event_name" | "market" | "event_date" | "total_investment" | "expected_profit";
+  type EditField = "event_name" | "market" | "bookmaker" | "event_date" | "total_investment" | "expected_profit";
 
   const [bets, setBets] = useState<BetOperation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,6 +93,7 @@ export const History = () => {
   const [editTouched, setEditTouched] = useState<Record<EditField, boolean>>({
     event_name: false,
     market: false,
+    bookmaker: false,
     event_date: false,
     total_investment: false,
     expected_profit: false,
@@ -119,7 +121,7 @@ export const History = () => {
       const { data, error } = await supabase
         .from("bet_operations")
         .select(
-          "id,event_name,event_date,event_time,market,bookie_1,bookie_2,total_investment,expected_profit,status,created_at",
+          "id,event_name,event_date,event_time,market,bookmaker,bookie_1,bookie_2,total_investment,expected_profit,status,created_at",
         )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
@@ -213,6 +215,7 @@ export const History = () => {
         event_name: editingBet.event_name,
         event_date: editingBet.event_date,
         market: editingBet.market,
+        bookmaker: editingBet.bookmaker ?? "",
         total_investment: Number(editingBet.total_investment || 0),
         expected_profit: Number(editingBet.expected_profit || 0),
       });
@@ -241,6 +244,7 @@ export const History = () => {
             event_name: parsed.data.event_name,
             event_date: parsed.data.event_date,
             market: parsed.data.market,
+            bookmaker: parsed.data.bookmaker,
             total_investment: parsed.data.total_investment,
             expected_profit: parsed.data.expected_profit,
           })
@@ -304,6 +308,7 @@ export const History = () => {
       event_name: editingBet.event_name,
       event_date: editingBet.event_date,
       market: editingBet.market,
+      bookmaker: editingBet.bookmaker ?? "",
       total_investment: Number(editingBet.total_investment || 0),
       expected_profit: Number(editingBet.expected_profit || 0),
     });
@@ -511,6 +516,7 @@ export const History = () => {
                         setEditTouched({
                           event_name: false,
                           market: false,
+                          bookmaker: false,
                           event_date: false,
                           total_investment: false,
                           expected_profit: false,
@@ -628,6 +634,7 @@ export const History = () => {
                               setEditTouched({
                                 event_name: false,
                                 market: false,
+                                bookmaker: false,
                                 event_date: false,
                                 total_investment: false,
                                 expected_profit: false,
@@ -748,6 +755,19 @@ export const History = () => {
             </div>
 
             <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Casas de Aposta</label>
+              <input
+                type="text"
+                value={editingBet?.bookmaker ?? ""}
+                onChange={(e) => setEditingBet((prev) => (prev ? { ...prev, bookmaker: e.target.value } : prev))}
+                onBlur={() => markEditTouched("bookmaker")}
+                className={inputClass}
+                required
+              />
+              {getEditError("bookmaker") ? <p className="text-[11px] text-loss">{getEditError("bookmaker")}</p> : null}
+            </div>
+
+            <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Data do Evento</label>
               <input
                 type="date"
@@ -815,6 +835,7 @@ export const History = () => {
                   setEditTouched({
                     event_name: false,
                     market: false,
+                    bookmaker: false,
                     event_date: false,
                     total_investment: false,
                     expected_profit: false,
