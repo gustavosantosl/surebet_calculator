@@ -84,9 +84,10 @@ export default function SurebetCalculator() {
 
   const impliedProb = odd1 > 1 && odd2 > 1 ? 1 / odd1 + 1 / odd2 : 2;
   const isProfitable = impliedProb < 1;
+  const theoreticalRoi = impliedProb > 0 ? (1 / impliedProb - 1) * 100 : 0;
   const totalReturn = stake1 * odd1;
   const netProfit = totalReturn - totalInvestment;
-  const roi = totalInvestment > 0 ? (netProfit / totalInvestment) * 100 : 0;
+  const roi = theoreticalRoi;
 
   const pivotOptions: { value: PivotMode; label: string }[] = [
     { value: "total", label: "Aposta Total" },
